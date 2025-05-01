@@ -1,0 +1,11 @@
+.Trash-1000/
+anomaly_venv/
+dr23-features/
+.ipynb_checkpoints
+**/*.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+**/__pycache__/
+sn_clf/data/akb_sn_dr23_crossmatch.npy
+sn_clf/data/bts_dr23_crossmatch.npy
+rb_clf_V2/data/crossmatch.npy
+lost+found/
