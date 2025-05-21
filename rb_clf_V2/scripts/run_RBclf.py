@@ -64,6 +64,7 @@ def main():
     # Load data
     oids, features = load_single(f'../../dr23-features/{args.oid}', 
                                 f'../../dr23-features/{args.feature}')
+    #features = all_features[:, :-1]
     total_objects = len(oids)
     
     # Prepare output files
@@ -101,7 +102,7 @@ def main():
     
     # Write feature names if concatenating
     if args.concat:
-        with open(args.featurenames) as f:
+        with open(f'../../dr23-features/{args.featurenames}') as f:
             names = f.read().split()
         exp_names = names + ['RB_clf_proba']
         with open(f'../../dr23-features/{args.output}.name', 'w') as f:

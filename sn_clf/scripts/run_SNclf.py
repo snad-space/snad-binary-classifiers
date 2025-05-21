@@ -36,8 +36,16 @@ def main():
     model = load_snmodel(args.modelname, num_threads=args.n_jobs)
     
     # Load data
-    oids, features = load_features(f'../../dr23-features/{args.oid}', 
+    oids, init_features = load_features(f'../../dr23-features/{args.oid}', 
                                 f'../../dr23-features/{args.feature}')
+    
+    with open(f'../../dr23-features/{args.featurenames}') as f:
+        names = f.read().split()
+        
+    #no chi2 in features
+    filtered = np.array([False if 'chi2' in str(item) else True for item in names])
+    features = init_features[:, filtered]
+    
     total_objects = len(oids)
     
     # Prepare output files
@@ -75,8 +83,6 @@ def main():
     
     # Write feature names if concatenating
     if args.concat:
-        with open(args.featurenames) as f:
-            names = f.read().split()
         exp_names = names + ['SN_clf_proba']
         with open(f'../../dr23-features/{args.output}.name', 'w') as f:
             for line in exp_names:

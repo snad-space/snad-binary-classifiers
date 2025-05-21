@@ -21,7 +21,7 @@ def make_argument_parser():
     parser.add_argument('--featuresfile', help='Name of the file with features', required=True)
     parser.add_argument('--oidsfile', help='Name of the file with OIDs', required=True)
     parser.add_argument('--modelname', help='Name for trained model.', required=True)
-    parser.add_argument('--crossmatch', help='Crossmatch objects from akb with oidsfile or not.', type=bool, default=False)
+    parser.add_argument('--crossmatch', help='Crossmatch objects from akb with oidsfile or not.', default=False)
     parser.add_argument('--akbfeat', help='Name for saving AKB object features.')
     parser.add_argument('--akblist', help='Name of akb database file.', default=False)
     parser.add_argument('-s', '--random_seed', default=42, type=int, help='Fix the seed for reproducibility. Defaults set to 42.')
@@ -120,7 +120,7 @@ def main():
         np.save(f'../data/crossmatch.npy', crossmatch)
         
 
-    akb_features = features[crossmatch] 
+    akb_features = features[crossmatch]
     akb_labels = np.array([akb[oid] for oid in oids[crossmatch]]).reshape((-1,1))
     data = pd.DataFrame(data=np.hstack([akb_features, akb_labels]), columns=names+['label'])
 

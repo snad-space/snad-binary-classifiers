@@ -9,3 +9,8 @@ sn_clf/data/akb_sn_dr23_crossmatch.npy
 sn_clf/data/bts_dr23_crossmatch.npy
 rb_clf_V2/data/crossmatch.npy
 lost+found/
+rb_clf_V2/pineforest_result/
+sn_clf/aad_result/
+sn_clf/notebooks/feature_imp.png
+sn_clf/notebooks/feature_imp_no-chi2.png
+sn_clf/pineforest_result/

@@ -84,7 +84,14 @@ def main():
     train_labels = np.hstack([np.ones(len(bts_features)), np.zeros(len(bts_features))])
     test_labels = np.hstack([np.ones(len(akb_sn_features)), np.zeros(len(akb_sn_features))])
 
-
+    ##############################
+    #no chi2 in features
+    filtered = np.array([False if 'chi2' in str(item) else True for item in names])
+    train_data = train_data[:, filtered]
+    test_data = test_data[:, filtered]
+    names = np.array(names)[filtered]
+    ##############################
+    
     # Train and validate real-bogus model
     print('Training model...')
     t = time.monotonic()
