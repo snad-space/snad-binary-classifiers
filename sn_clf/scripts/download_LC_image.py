@@ -12,7 +12,7 @@ from sn_clf.scripts.utils import load_features
 
 def make_url_from_oids(oids_str):
     oids = oids_str.split('_')
-    url = f'https://ztf.snad.space/dr17/figure/{oids[0]}?'
+    url = f'https://ztf.snad.space/dr23/figure/{oids[0]}?'
     
     other = ''
     for oid in oids[1:]:
