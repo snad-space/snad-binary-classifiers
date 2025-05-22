@@ -18,7 +18,7 @@ def make_url_from_oids(oids_str):
     for oid in oids[1:]:
         other += f'other_oid={oid}&'
 
-    url += other + f'title={oids_str}&min_mjd=50000&max_mjd=70000&format=png'
+    url += other + f'title={oids_str}&min_mjd=50000&max_mjd=60125&format=png'
     return url
 
 def download_image(url, oids_str):
