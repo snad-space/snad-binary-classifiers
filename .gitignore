@@ -16,3 +16,4 @@ sn_clf/notebooks/feature_imp_no-chi2.png
 sn_clf/pineforest_result/
 sn_clf/notebooks/bts_sample_oid.csv
 sn_clf/notebooks/bts_validation.ipynb
+sn_clf/data/bts_nocutmjd_dr23_crossmatch.npy
