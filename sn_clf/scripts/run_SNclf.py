@@ -36,15 +36,15 @@ def main():
     model = load_snmodel(args.modelname, num_threads=args.n_jobs)
     
     # Load data
-    oids, init_features = load_features(f'../../dr23-features/{args.oid}', 
+    oids, features = load_features(f'../../dr23-features/{args.oid}', 
                                 f'../../dr23-features/{args.feature}')
     
     with open(f'../../dr23-features/{args.featurenames}') as f:
         names = f.read().split()
         
     #no chi2 in features
-    filtered = np.array([False if 'chi2' in str(item) else True for item in names])
-    features = init_features[:, filtered]
+    #filtered = np.array([False if 'chi2' in str(item) else True for item in names])
+    #features = init_features[:, filtered]
     
     total_objects = len(oids)
     

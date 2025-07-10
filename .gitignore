@@ -17,3 +17,13 @@ sn_clf/pineforest_result/
 sn_clf/notebooks/bts_sample_oid.csv
 sn_clf/notebooks/bts_validation.ipynb
 sn_clf/data/bts_nocutmjd_dr23_crossmatch.npy
+coniferest/
+.virtual_documents/
+SLSN_search/slsn_in_dr23.dat
+SLSN_search/sn_in_dr23.dat
+coniferest-0.0.14-cp310-abi3-manylinux_2_17_x86_64.manylinux2014.whl
+coniferest_rust/
+coniferest_rust_test/
+sn_clf/data/akb_all_dr23_crossmatch.npy
+sn_clf/notebooks/catboost_info/
+sn_clf/notebooks/onnx_model/

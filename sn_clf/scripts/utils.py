@@ -1,10 +1,5 @@
 import numpy as np
-from skl2onnx.common.data_types import FloatTensorType
-from skl2onnx import convert_sklearn
 import json
-import onnxruntime as rt
-import requests
-import matplotlib.pyplot as plt
 
 akb_sn_tags = set(['SNIa', 'SN', 'SLSN', 'CCSN'])
 def get_sn_label_from_akb(filepath):
@@ -83,13 +78,18 @@ def load_features(oid_filename, feature_filename):
 
 
 def download_akb_json(filename):
+    import requests
+    
     url = f'https://akb.ztf.snad.space/objects/'
     with requests.get(url) as response:
         response.raise_for_status()
         open(f'../data/{filename}', 'wb').write(response.content)
 
 
-def convert_to_onnx(model, input_shape, name):    
+def convert_to_onnx(model, input_shape, name):
+    from skl2onnx.common.data_types import FloatTensorType
+    from skl2onnx import convert_sklearn
+    
     initial_type = [('float_input', FloatTensorType([None, input_shape]))]
     onx = convert_sklearn(model, initial_types=initial_type)
     with open(f'../models/{name}.onnx', "wb") as f:
@@ -98,6 +98,8 @@ def convert_to_onnx(model, input_shape, name):
 
 def load_snmodel(model_name, num_threads=None):
     """Load ONNX model with memory optimization"""
+    import onnxruntime as rt
+    
     sess_options = rt.SessionOptions()
     sess_options.enable_mem_pattern = False  # Disable memory pattern for large models
     
@@ -118,15 +120,23 @@ def process_chunk(model, chunk_data, concat=False):
     """Process a single chunk of data"""
     sess, input_name, prob_name = model
     pred_proba = sess.run([prob_name], {input_name: chunk_data.astype(np.float32)})[0]
-    proba = np.float32([pred[1] for pred in pred_proba])
-    
+    n_class = len(pred_proba[0].keys())
+    if n_class == 2:
+        proba = np.float32([pred[1] for pred in pred_proba]).reshape((-1, 1))
+    else:
+        proba = []
+        for pred in pred_proba:
+            proba.append([pred[cl] for cl in range(n_class)])
+        proba = np.float32(proba)
     if concat:
-        return np.hstack((chunk_data, proba.reshape((-1, 1))))
+        return np.hstack((chunk_data, proba))
     return proba
 
 
 
 def plot_config():
+    import matplotlib.pyplot as plt
+    
     plt.rcParams["font.family"] = "DejaVu Serif"
     plt.rcParams["mathtext.fontset"] = 'dejavuserif'
     plt.rcParams["font.size"] = 22
@@ -149,3 +159,5 @@ def plot_config():
     grid_param = {'linestyle': '--', 'alpha': 0.5}
     plt.rc('grid', **grid_param)
 
+if __name__ == "__main__":
+    main()
