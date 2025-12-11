@@ -27,3 +27,4 @@ coniferest_rust_test/
 sn_clf/data/akb_all_dr23_crossmatch.npy
 sn_clf/notebooks/catboost_info/
 sn_clf/notebooks/onnx_model/
+SLSN_search/

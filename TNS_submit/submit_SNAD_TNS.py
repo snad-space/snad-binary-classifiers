@@ -4,57 +4,48 @@ Send SNAD objects to TNS for reporting
 -Patrick Aleo (Github: patrickaleo) adapted from Chien-Hsiu Lee <chien-hsiu.lee@noirlab.edu> 20230706 (yyyymmdd)
 
 """
-import astropy.time as atime
-from collections import OrderedDict
-import time
-
-import sys
 import os
-import string
-import getpass
-import requests
-from requests.auth import HTTPBasicAuth
-from bs4 import BeautifulSoup
+import sys
+import time
 import json
-from datetime import datetime
-from sys import platform as sys_pf
-
-#import PySimpleGUI as sg
-
-from matplotlib import pyplot as plt
-from matplotlib.gridspec import GridSpec
-from matplotlib import rc, rcParams
-from matplotlib.ticker import AutoMinorLocator, MultipleLocator
+import argparse
+import requests
 import pandas as pd
 import numpy as np
-from astropy.io import ascii, fits
-from astropy import wcs
-from astropy.wcs.utils import proj_plane_pixel_scales
-from astropy.coordinates import SkyCoord, SkyOffsetFrame
-from astropy.coordinates import concatenate as SkyConcat
+from io import BytesIO
+from datetime import datetime
 from astropy.time import Time
-import astropy.units as u
-import astropy.table as at
 from astropy.table import Table
-#import reproject
+import matplotlib
+matplotlib.use('TkAgg')
+from matplotlib import pyplot as plt
+from matplotlib.gridspec import GridSpec
+from collections import OrderedDict
+from astropy.io import fits
+import astropy.utils.data
+astropy.utils.data.conf.show_progress = False
+
+from pathlib import Path
+from urllib.error import URLError, HTTPError
+
+
 import warnings
 warnings.filterwarnings("ignore")
 
-import argparse
 parser = argparse.ArgumentParser(description="usage: python3 submit_SNAD_TNS.py -subtype [args] -private_key [args] -reporter [args] -plot_first_detection [args] -refmag [args] -err_refmag [args] -snad_name [args] -tns_type [args] -ztf_id [args] -use_common_remark [args] -oid [args]\n\n e.g. python3 submit_SNAD_TNS.py -subtype TNS -private_key [REDACTED] -reporter 'Patrick Aleo (UIUC)' -plot_first_detection True -refmag 20.943 -err_refmag 0.057 -snad_name SNAD180 -tns_type PSN -ztf_id ZTF18abnwdwh -use_common_remark Miner -oid 825114400003486")
 parser.add_argument("-subtype", "--submissiontype", dest = "subtype", help="Submission Type (TNS or Sandbox)", type=str, required=True)
 parser.add_argument("-private_key", "--private_key", dest = "private_key", help="Private API Key for SNAD_bot.", type=str, required=True)
 parser.add_argument("-reporter", "--reporter", dest = "reporter", help="Reporter Name on AT Report. Example: 'Patrick Aleo (UIUC)'. NOTE: Needs to be in single quotes if you have spaces!", type=str, required=True)
 parser.add_argument("-plot_first_detection", "--plot_first_detection", dest = "plot_first_detection", help="If to plot first detection (True or False)", type=str, required=True)
 #parser.add_argument("-approx_detection_mjd", "--approx_detection_mjd", dest = "approx_detection_mjd", help="Tells algorithm to search around this MJD for first point above 3 sigma from reference mag to use as first detection.", type=str, required=True)
-parser.add_argument("-refmag", "--refmag", dest = "refmag", help="ZTF reference magnitude", type=str, required=True)
-parser.add_argument("-err_refmag", "--err_refmag", dest = "err_refmag", help="ZTF reference magnitude error", type=str, required=True)
+parser.add_argument("-refmag", "--refmag", dest = "refmag", help="ZTF reference magnitude", type=str, required=False, default=None)
+parser.add_argument("-err_refmag", "--err_refmag", dest = "err_refmag", help="ZTF reference magnitude error", type=str, required=False)
 parser.add_argument("-snad_name", "--snad_name", dest = "snad_name", help="Internal SNAD Catalog name", type=str, required=True)
 parser.add_argument("-tns_type", "--tns_type", dest = "tns_type", help="Indicate valid TNS Type (PSN, PNV, AGN, NUC, Other)", type=str, required=True)
 parser.add_argument("-ztf_id", "--ztf_id", dest = "ztf_id", help="ZTF ID. If none, write 'None'", type=str, required=True)
 parser.add_argument("-use_common_remark", "--use_common_remark", dest = "use_common_remark", help="Use common remark for TNS entry (AAD, Miner, PineForest, or Custom). If Custom, you will be prompted to enter a custom remark.", type=str, required=True)
 parser.add_argument("-oid", "--oid", nargs='+', dest = "oid", help="ZTF OID", type=str, required=True)
-parser.add_argument("-upload_plot", "--upload_plot", dest="upload_plot", help="If True, upload PNG light curve before submission", type=str, required=False, default="False")
+parser.add_argument("-upload_plot", "--upload_plot", dest="upload_plot", help="If True, upload PNG light curve from ZTF viewer to TNS.", type=str, required=False, default="False")
 
 args = parser.parse_args()
 
@@ -486,8 +477,61 @@ def SendTNS():
         print('Choose True or False for -plot_first_detection flag!')
         sys.exit()
 
-    refmag = float(args.refmag)
-    err_refmag = float(args.err_refmag)
+
+    ZTF_FITS_PROXY_URL = "https://fits.ztf.snad.space"
+    REF_BASE_PATH = "/products/ref/"
+
+    def get_meta_from_snad(oid):
+        url = f"https://db.ztf.snad.space/api/v3/data/latest/oid/meta/json?oid={oid}"
+        response = requests.get(url)
+        if not response.ok:
+            raise ValueError(f"OID {oid} not found in SNAD API")
+        return response.json()[oid]
+    
+    def get_ref_mag_magerr(oid):
+        meta = get_meta_from_snad(oid)
+        fieldid = meta["fieldid"]
+        rcid = meta["rcid"]
+        root = "000" if fieldid < 1000 else "001"
+        ccdid = rcid // 4 + 1
+        qid = rcid % 4 + 1
+    
+        filename = f"ztf_{fieldid:06d}_{meta["filter"]}_c{ccdid:02d}_q{qid}_refpsfcat.fits"
+        path = Path(REF_BASE_PATH) / root / f"field{fieldid:06d}" / meta["filter"] / f"ccd{ccdid:02d}" / f"q{qid}" / filename
+    
+        url = f"{ZTF_FITS_PROXY_URL}{path}"
+        
+        sourceid = int(oid) % 10_000_000
+        try:
+            with fits.open(url) as f:
+                header = f[0].header
+                data = f[1].data
+                where = np.where(data["sourceid"] == sourceid)[0]
+                if where.size == 0:
+                    logging.warning(f"Object {oid} is not found in the reference catalog file {url}")
+                    raise NotFound
+                idx = where.item()
+                record = dict(zip(data.names, data[idx]))
+                record["magzp"] = header["MAGZP"]
+                record["magzp_rms"] = header["MAGZPRMS"]
+                record["infobits"] = header["INFOBITS"]
+        except HTTPError:
+            raise NotFound
+        except URLError:
+            raise CatalogUnavailable
+    
+        ref_mag = np.round(record["mag"] + record["magzp"], decimals=3)
+        ref_magerr = np.round(record["sigmag"], decimals=3)
+        return ref_mag, ref_magerr
+
+    
+    if args.refmag:
+        refmag = float(args.refmag)
+        err_refmag = float(args.err_refmag)
+    else:
+        refmag, err_refmag = get_ref_mag_magerr(args.oid[0])
+        print(f"Reference values from ZTF: refmag = {refmag:.2f}, err_refmag = {err_refmag:.2f}")
+        
     xlim_l,xlim_u = 58178.0, 60125.0 # private DR23 time span # Change if first detection is not good
     ylim_bright,ylim_faint = 18.0, 23.0  # 18.0, 23.0 # Change if first detection is not good
 
@@ -543,7 +587,7 @@ def SendTNS():
         elif args.use_common_remark=='Miner':
             REMARK = f"Transient identified by SNAD Miner (https://arxiv.org/pdf/2111.11555.pdf). See more info at: https://ztf.snad.space/view/{obj_id}. {ZTF_ALERT_ID_REMARK}"
         elif args.use_common_remark=='PineForest':
-            REMARK = f"Transient identified by Pine Forest. See more info at: https://ztf.snad.space/view/{obj_id}. {ZTF_ALERT_ID_REMARK}"
+            REMARK = f"Transient identified by PineForest. See more info at: https://ztf.snad.space/view/{obj_id}. {ZTF_ALERT_ID_REMARK}"
         elif args.use_common_remark=='Custom':
             # Taking input from the user
             REMARK = input("You selected to write a custom remark. What would you like to say?...")
@@ -559,87 +603,96 @@ def SendTNS():
         xlim = [xlim_l,xlim_u]
         ylim = [ylim_bright,ylim_faint]
 
-
-        # from ztf refmag or the last photometrical point for this OID
-        ref = round(float(refmag), 2)
-        err_ref = round(float(err_refmag), 2)
-
         #Load ra, dec
         page = requests.get(f"http://db.ztf.snad.space/api/v3/data/latest/oid/full/json?oid={obj_id}")
 
         soup = page.json()
         ra = round(soup[obj_id]['meta']['coord']['ra'], 5)
         dec = round(soup[obj_id]['meta']['coord']['dec'], 5)
-
+        
         data = data[(data['mjd'] >= xlim_l) & (data['mjd'] <= xlim_u)]
-        #print(data['mjd'])
-
-        data['flux'] = 10**(-0.4*data['mag']) - 10**(-0.4*ref)
-        data['fluxerr'] = np.sqrt(flux_error(data['mag'],data['magerr'])**2 + flux_error(ref,err_ref)**2)
-        data['magerr_down'] = mag_error(data['flux'], data['fluxerr'])[0]
-        data['magerr_up'] = mag_error(data['flux'], data['fluxerr'])[1]
-
+        
         found_first_detection = False
-        for i in data:
-            if i['flux'] > 3*i['fluxerr']:
-                tr_time = i['mjd']
-                flux = i['flux']
-                mag = round(-2.5*np.log10(i['flux']), 2)
-                magerr_down = round(i['magerr_down'], 2)
-                magerr_up = round(i['magerr_up'], 2)
-                passband = i['filter']
-                found_first_detection = True
-                break
+        while found_first_detection==False:
+            # from ztf refmag or the last photometrical point for this OID
+            ref = round(float(refmag), 2)
+            err_ref = round(float(err_refmag), 2)
+            
+            data['flux'] = 10**(-0.4*data['mag']) - 10**(-0.4*ref)
+            data['fluxerr'] = np.sqrt(flux_error(data['mag'],data['magerr'])**2 + flux_error(ref,err_ref)**2)
+            data['magerr_down'] = mag_error(data['flux'], data['fluxerr'])[0]
+            data['magerr_up'] = mag_error(data['flux'], data['fluxerr'])[1]
 
-        if not found_first_detection:
-            print(f"[WARNING] No detection above 3-sigma for OID {obj_id}. Skipping...")
-            continue
+            for i in data:
+                if i['flux'] > 3*i['fluxerr']:
+                    tr_time = i['mjd']
+                    flux = i['flux']
+                    mag = round(-2.5*np.log10(i['flux']), 2)
+                    magerr_down = round(i['magerr_down'], 2)
+                    magerr_up = round(i['magerr_up'], 2)
+                    passband = i['filter']
+                    found_first_detection = True
+                    break
+    
+            if not found_first_detection:
+                print(f"[WARNING] No detection above 3-sigma for OID {obj_id}. Skipping...")
+                continue
 
-        t_mjd = Time(tr_time, format='mjd', scale='utc')
-        if plot_status==True:
-            fig = plt.figure(figsize=(8,3))
-            fig.subplots_adjust(left=.08, bottom=.15, right=.98, top=0.95)
-
-            gs = GridSpec(1, 2, height_ratios=[1])
-            ax1 = fig.add_subplot(gs[0])
-            ax2 = fig.add_subplot(gs[1])
-
-            ax1.errorbar(x=data['mjd'],y=data['flux'],yerr=data['fluxerr'], marker='s', ms=2, mew=1, ls='none', zorder=-1)
-            ax1.axvline(x=tr_time, color='red', ls='--', zorder=0)
-            ax1.plot(tr_time, flux, 'ro', label='1st detection')
-            ax1.set_xlabel('mjd')
-            ax1.set_ylabel('relative flux')
-            ax1.legend()
-
-            ax2.errorbar(x=data['mjd'],y=-2.5*np.log10(data['flux']),yerr=(mag_error(data['flux'], data['fluxerr'])[0],mag_error(data['flux'], data['fluxerr'])[1]), marker='s', ms=2, mew=1, ls='none', zorder=-1)
-            ax2.axvline(x=tr_time, color='red', ls='--', zorder=0)
-            ax2.plot(tr_time, mag, 'ro', label='1st detection')
-            ax2.axhline(y=ref, color='black', ls='--', zorder=1)
-            ax2.text(x=data['mjd'].mean(), y=ref, s='reference', color='black', ha='center', va='bottom', fontsize=10, zorder=2)
-
-            ax2.set_xlim(xlim)
-            ax2.set_ylim(ylim)
-            ax2.invert_yaxis()
-            ax2.set_xlabel('mjd')
-            ax2.set_ylabel('magnitude')
-            ax2.legend()
-
-            #t_mjd = Time(tr_time, format='mjd', scale='utc')
-            print('First detection: t_UTC = %s, mag = %2.2f, magerr_down = %2.2f, magerr_up = %2.2f, filter = %s' %(t_mjd.iso, mag, magerr_down, magerr_up, passband))
-            plt.show()
-
-            # Taking input from the user
-            string = input("Is this first detection ok? If yes, type 'y'. If no, type 'n' and change arguments in script...")
-
-            # Output
-            if string == 'y':
-                print("Continuing on!...")
-                pass
-            elif string == 'n':
-                print("Exiting script")
-                break
+            t_mjd = Time(tr_time, format='mjd', scale='utc')
+            
+            if plot_status==True:
+                fig = plt.figure(figsize=(8,3))
+                fig.subplots_adjust(left=.08, bottom=.15, right=.98, top=0.95)
+    
+                gs = GridSpec(1, 2, height_ratios=[1])
+                ax1 = fig.add_subplot(gs[0])
+                ax2 = fig.add_subplot(gs[1])
+    
+                ax1.errorbar(x=data['mjd'],y=data['flux'],yerr=data['fluxerr'], marker='s', ms=2, mew=1, ls='none', zorder=-1)
+                ax1.axvline(x=tr_time, color='red', ls='--', zorder=0)
+                ax1.plot(tr_time, flux, 'ro', label='1st detection')
+                ax1.set_xlabel('mjd')
+                ax1.set_ylabel('relative flux')
+                ax1.legend()
+    
+                ax2.errorbar(x=data['mjd'],y=-2.5*np.log10(data['flux']),yerr=(mag_error(data['flux'], data['fluxerr'])[0],mag_error(data['flux'], data['fluxerr'])[1]), marker='s', ms=2, mew=1, ls='none', zorder=-1)
+                ax2.axvline(x=tr_time, color='red', ls='--', zorder=0)
+                ax2.plot(tr_time, mag, 'ro', label='1st detection')
+                ax2.axhline(y=ref, color='black', ls='--', zorder=1)
+                ax2.text(x=data['mjd'].mean(), y=ref, s='reference', color='black', ha='center', va='bottom', fontsize=10, zorder=2)
+    
+                ax2.set_xlim(xlim)
+                ax2.set_ylim(ylim)
+                ax2.invert_yaxis()
+                ax2.set_xlabel('mjd')
+                ax2.set_ylabel('magnitude')
+                ax2.legend()
+    
+                #t_mjd = Time(tr_time, format='mjd', scale='utc')
+                print('First detection: t_UTC = %s, mag = %2.2f, magerr_down = %2.2f, magerr_up = %2.2f, filter = %s' %(t_mjd.iso, mag, magerr_down, magerr_up, passband))
+                plt.show()
+    
+                # Taking input from the user
+                string = input("Is this first detection ok? If yes, type 'y'. If no, type 'n' and change reference magnitude and its error:  ")
+    
+                # Output
+                if string == 'y':
+                    print("Continuing on!...")
+                    break
+                elif string == 'n':
+                    plt.close()
+                    found_first_detection = False
+                    try:
+                        refmag = float(input("Enter new reference magnitude: "))
+                        err_refmag = float(input("Enter new reference magnitude error: "))
+                        print(f"Updated refmag = {refmag}, err_refmag = {err_refmag}")
+                        
+                    except ValueError:
+                        print("Invalid input. Please enter numeric values.")
+                else:
+                    raise ValueError("Invalid input. Please type 'y' or 'n'.")
             else:
-                raise("type 'y' or 'n'")
+                break
 
         if not args.ztf_id=='None': # HAS ZTF Alert ID!
             ZTF_ID = str(args.ztf_id)
@@ -725,28 +778,33 @@ def SendTNS():
         # upload png BEFORE submit
         related_file_name = None  # default value
         if upload_plot:
-            print("Uploading PNG plot before submission...")
-            plot_name = f"{obj_id}.png"
-            plot_path = os.path.join("OID_plots_to_add", plot_name)
-            if os.path.exists(plot_path):
+            print("Downloading and uploading PNG plot before submission...")
+            plot_url = f"https://ztf.snad.space/latest/figure/{obj_id}?&title={obj_id}&min_mjd=50000&max_mjd=70000&format=png"
+        
+            # Скачиваем изображение
+            plot_resp = requests.get(plot_url)
+            #print(plot_url)
+            if plot_resp.status_code == 200:
+                img_bytes = BytesIO(plot_resp.content)
+                img_bytes.name = f"{obj_id}.png"  # нужно указать имя файла для multipart
+        
                 headers = {
                     "User-Agent": f'tns_marker{{"tns_id":"{YOUR_BOT_ID}", "type":"bot", "name":"{YOUR_BOT_NAME}"}}'
                 }
                 upload_url = f"https://{TNS}/api/set/file-upload"
-                files = {"files[0]": open(plot_path, "rb")}
+                files = {"files[0]": img_bytes}
                 data_upload = {"api_key": api_key}
-
+        
                 resp = requests.post(upload_url, headers=headers, files=files, data=data_upload)
-
+        
                 if resp.status_code == 200:
-                    #print(resp.json())
                     saved_plot_name = resp.json()["data"][0]
                     print(f"Uploaded PNG. Saved plot name: {saved_plot_name}")
                     related_file_name = saved_plot_name
                 else:
                     print(f"[WARNING] Failed to upload PNG: {resp.status_code}, {resp.text}")
             else:
-                print(f"[WARNING] PNG file does not exist: {plot_path}")
+                print(f"[WARNING] Failed to download PNG: {plot_resp.status_code}, {plot_resp.text}")
 
         if related_file_name:
             snad_data["at_report"]["0"]["related_files"] = {
