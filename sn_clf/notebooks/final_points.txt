@@ -1,0 +1,15 @@
+Event	X(arcsec)	Y(arcsec)	dX(arcsec)	dY(arcsec)
+#533202300011210, offsets from first epoch
+Epoch 1 (1st burst):	0.0	0.0	0.11	0.01
+Epoch 2:	-0.03	0.24	0.06	0.08
+Epoch 3 (2nd burst):	0.0	-0.09	0.10	0.09
+
+#580214400011443, offsets from host center
+Host center:	0.0	0.0	0.07	0.13
+Epoch 2 (1st burst):	-8.31	10.36	0.07	0.13
+Epoch 3 (2nd burst):	-7.12	11.47	0.06	0.11
+
+#680211300006932, offsets from host center
+Host center:	0.0	0.0	0.05	0.08
+Epoch 1 (1st burst):	0.97	0.63	0.05	0.08
+Epoch 2 (2nd burst):	-0.38	0.59	0.12	0.22
