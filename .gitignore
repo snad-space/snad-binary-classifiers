@@ -1,3 +1,5 @@
+sn_clf/top100sn_field820.csv
+sn_clf/top100sn_hard.csv
 sn_clf/notebooks/if_test.ipynb
 sn_clf/notebooks/long_onehot.ipynb
 sn_clf/notebooks/proj_plot.ipynb
