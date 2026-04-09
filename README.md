@@ -5,7 +5,7 @@ The classifiers are trained and applied using the dr23-features feature set, whi
 A real–bogus classifier trained on the updated AKB database.
 
 `sn_clf`
-A supernova vs. non-supernova classifier. The positive class consists of 674 spectroscopically confirmed supernovae from the ZTF Bright Transient Survey (BTS), selected after visual inspection. The negative class includes 10,000 randomly selected objects from ZTF DR23, as well as all objects from the AKB database excluding those labeled as supernovae. Further details are described in a paper in preparation.
+A supernova vs. non-supernova classifier. The positive class consists of 674 spectroscopically confirmed supernovae from the ZTF Bright Transient Survey (BTS), selected after visual inspection. The negative class includes 10,000 randomly selected objects from ZTF DR23, as well as all objects from the AKB database excluding those labeled as supernovae. More details are described in corresponding [directory](https://github.com/snad-space/snad-binary-classifiers/tree/master/sn_clf).
 
 `ztf_field_map`
 Code for constructing a sky map showing the coverage of ZTF fields.
