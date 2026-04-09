@@ -37,7 +37,7 @@ def load_rbmodel(model_name, num_threads=None):
         sess_options.inter_op_num_threads = num_threads
     
     sess = rt.InferenceSession(
-        f'../models/{model_name}.onnx',
+        f'{model_name}',
         sess_options,
         providers=["CPUExecutionProvider"]
     )
@@ -62,13 +62,13 @@ def main():
     model = load_rbmodel(args.modelname, num_threads=args.n_jobs)
     
     # Load data
-    oids, features = load_single(f'../../dr23-features/{args.oid}', 
-                                f'../../dr23-features/{args.feature}')
+    oids, features = load_single(f'{args.oid}', 
+                                f'{args.feature}')
     #features = all_features[:, :-1]
     total_objects = len(oids)
     
     # Prepare output files
-    output_file = f'../../dr23-features/{args.output}.dat'
+    output_file = f'{args.output}.dat'
     if os.path.exists(output_file):
         os.remove(output_file)
     
@@ -102,10 +102,10 @@ def main():
     
     # Write feature names if concatenating
     if args.concat:
-        with open(f'../../dr23-features/{args.featurenames}') as f:
+        with open(f'{args.featurenames}') as f:
             names = f.read().split()
         exp_names = names + ['RB_clf_proba']
-        with open(f'../../dr23-features/{args.output}.name', 'w') as f:
+        with open(f'{args.output}.name', 'w') as f:
             for line in exp_names:
                 f.write(f"{line}\n")
     

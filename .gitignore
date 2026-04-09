@@ -1,3 +1,6 @@
+sn_clf/notebooks/if_test.ipynb
+sn_clf/notebooks/long_onehot.ipynb
+sn_clf/notebook/proj_plot.ipynb
 .Trash-1000/
 anomaly_venv/
 dr23-features/
@@ -29,3 +32,6 @@ sn_clf/notebooks/catboost_info/
 sn_clf/notebooks/onnx_model/
 SLSN_search/
 umap/
+AGN/
+pineforest_output_budget50/
+pineforest_output_budget30/
