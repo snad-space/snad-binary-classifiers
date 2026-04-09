@@ -12,6 +12,3 @@ Code for constructing a sky map showing the coverage of ZTF fields.
 
 `TNS_submit`
 Code for submitting new objects to the Transient Name Server (TNS) using the SNAD bot.
-
-`AGN`
-Code for working with the AGN sample.
