@@ -7,7 +7,7 @@ We visually inspected all of these curves, and then our sample was reduced to 67
 * `make_train_dataset.ipynb` -- code used to construct the training dataset.
 * `pineforest_run.ipynb` -- experiments with running PineForest on different fields and feature sets.
 
-Outputs from PineForest runs are stored in `pineforest_output/`.
+Outputs from PineForest runs are stored in `pineforest_output/`. CSV tables contain two columns: oid (object identifier) and is_anomaly (0 for regular objects, 1 for anomalies, which in our case correspond to SNe).
 
 Features extracted from light curves for PineForest experiments are available on [Zenodo](https://zenodo.org/records/17963500).
 
