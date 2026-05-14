@@ -1,3 +1,5 @@
+Related work: [Semenikhin et al. (2026)](https://doi.org/10.1016/j.ascom.2026.101126)
+
 `bts_sample_png` contains all lightcurve images from BTS sample for SNe, which are in our ZTF DR23 dataset.
 We visually inspected all of these curves, and then our sample was reduced to 674 SNe.
 
